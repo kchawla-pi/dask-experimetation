@@ -1,0 +1,44 @@
+
+services:
+  scheduler:
+    image: daskdev/dask:2024.5.1-py3.12
+    hostname: dask-scheduler
+    ports:
+      - "6878:6878"
+      - "7878:7878"
+#    command: ["dask-scheduler"]
+    command: ["dask", "scheduler", "--host", "tcp://scheduler", "--port", "6878", "--dashboard-address", "7878"]
+
+  worker:
+    image: daskdev/dask:2024.5.1-py3.12
+    hostname: dask-worker
+    ports:
+      - "8786"
+      - "8787"
+    command: ["dask", "worker", "tcp://scheduler:6878"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [ gpu ]
+
+  notebook:
+    image: daskdev/dask-notebook:2024.5.2-py3.12
+    hostname: notebook
+    ports:
+      - "8888:8888"
+    environment:
+      - DASK_SCHEDULER_ADDRESS="tcp://scheduler:6878"
+
+  calc:
+    image: dask_experimentation-calc
+    environment:
+      - CONTAINERIZED=true
+    build:
+      context: ./
+      dockerfile_inline: | 
+        FROM python:3.12
+        COPY requirements.txt requirements.txt
+        RUN pip install -r requirements.txt
+        ADD dask_experimentation_original.py dask_experimentation_original.py
+    command: ["python", "dask_experimentation_original.py"]
